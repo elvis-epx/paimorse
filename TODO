@@ -1,0 +1,8 @@
+GUI
+setup.py install
+man page for cw
+
+Irc:
+    # FIXME hardcoded server/port
+    # FIXME save nickname etc in a separate config
+    # FIXME allow to talk, too

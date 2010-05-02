@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2010 Elvis Pfutzenreuter <epx@epx.com.br>
+
+from ircbot import SingleServerIRCBot
+from morse import *
+import sys
+
+class TestBot(SingleServerIRCBot):
+    def __init__(self, channel, nickname, server, port, highlight):
+        SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
+        self.channel = channel
+	self.highlight = highlight
+
+    def on_nicknameinuse(self, c, e):
+        c.nick(c.get_nickname() + "_")
+
+    def on_welcome(self, c, e):
+        c.join(self.channel)
+
+    def on_privmsg(self, c, e):
+	txt = e.arguments()[0]
+	self.morse("P  " + txt + "   ")
+
+    def on_pubmsg(self, c, e):
+	txt = e.arguments()[0]
+	if self.highlight in txt:
+	    txt = "E  " + txt
+	self.morse(txt + "   ")
+
+    def morse(self, txt):
+	if not txt:
+	    return
+	fixed_text, bits = encode_morse(txt)
+	print bits
+	play_morse_bits(bits)
+
+def main():
+    server = "irc.freenode.net"
+    port = 6667
+    nickname = sys.argv[1]
+    highlight = sys.argv[2]
+    channel = sys.argv[3]
+    channel += " "  + sys.argv[4] # password
+
+    bot = TestBot(channel, nickname, server, port, highlight)
+    bot.start()
+
+if __name__ == "__main__":
+    main()
