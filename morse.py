@@ -135,7 +135,7 @@ if sys.platform == 'darwin':
 	cfg['class'] = MacOSXBeeper
 
 
-elif sys.platform == 'linux':
+elif sys.platform == 'linux2':
 	import threading, linuxaudiodev
 
 	class LinuxBeeperHelper(threading.Thread):
@@ -145,7 +145,7 @@ elif sys.platform == 'linux':
 			self.wavdata = wavdata
 			self.observer = observer
 
-		def run():
+		def run(self):
 			self.audiodev.write(self.wavdata)
 			self.observer.helper_finished()
 			self.audiodev = self.wavdata = self.observer = None
@@ -166,7 +166,7 @@ elif sys.platform == 'linux':
 							self)
 			self.helper.start()
 
-		def helper_finished():
+		def helper_finished(self):
 			self.helper = None
 
 	LinuxBeeper.impl = linuxaudiodev.open("w")
