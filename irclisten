@@ -32,6 +32,11 @@ class TestBot(SingleServerIRCBot):
     def morse(self, txt):
 	if not txt:
 	    return
+	try:
+		txt = txt.decode('utf-8')
+	except (ValueError, UnicodeError):
+		print "Invalid UTF-8 string:", txt
+		return
 	fixed_text, bits = encode_morse(txt)
 	print bits
 	play_morse_bits(bits)
@@ -41,8 +46,10 @@ def main():
     port = 6667
     nickname = sys.argv[1]
     highlight = sys.argv[2]
-    channel = sys.argv[3]
-    channel += " "  + sys.argv[4] # password
+    if len(sys.argv) > 4:
+    	channel = "#%s %s" % (sys.argv[3], sys.argv[4])
+    else:
+    	channel = "#%s" % sys.argv[3]
 
     bot = TestBot(channel, nickname, server, port, highlight)
     bot.start()

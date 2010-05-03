@@ -98,9 +98,13 @@ else:
 	fd = sys.stdin
 
 while True:
-	text = fd.readline().decode('utf-8')
+	text = fd.readline()
 	if not text:
 		break
+	try:
+		text = text.decode('utf-8')
+	except (ValueError, UnicodeError):
+		print "Invalid UTF-8 string:", text
 	fixed_text, bits = encode_morse(text)
 	print fixed_text
 	print bits

@@ -69,13 +69,14 @@ def generate_wave(freq, volume, duration, dot_duration, header):
 	return data
 
 
-nonascii = (	(u'çÇ©',       'C'),
+nonascii = (	(u'çÇ©',        'C'),
 		(u'ñÑ',         'N'),
 		(u'ÁÃÀÂÄáãàâä', 'A'),
 		(u'ÉÈÊËéèêë',   'E'),
 		(u'ÍÌÎÏíìîï',   'I'),
 		(u'ÓÒÔÖÕóòôöõ', 'O'),
-		(u'ÚÙÛÜúùûü',   'U'))
+		(u'ÚÙÛÜúùûü',   'U'),
+		(u'',		'AP'))
 
 
 def cast_alphabet(input):
