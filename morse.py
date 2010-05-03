@@ -147,15 +147,15 @@ elif sys.platform == 'linux2':
 			self.helper = None
 
 		def play(self):
-			self.impl.writeall(self.wavdata)
-			self.impl.sync()
+			tm = time.time() + self.duration
+			impl = ossaudiodev.open("/dev/dsp", "w")
+			impl.setparameters(ossaudiodev.AFMT_S16_LE, 1, SAMPLING)
+			impl.write(self.wavdata)
+			impl.close()
+			time.sleep(max(0, tm - time.time()))
 
 		def helper_finished(self):
 			self.helper = None
-
-	LinuxBeeper.impl = ossaudiodev.open("w")
-	LinuxBeeper.impl.setparameters(SAMPLING, 16, 1, ossaudiodev.AFMT_S16_LE)
-	LinuxBeeper.nonblock()
 
 	cfg['class'] = LinuxBeeper
 

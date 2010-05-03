@@ -2,6 +2,9 @@ GUI
 setup.py install
 man page for cw
 
+sleep() may not have the desired resolution;
+replace by writing device all the time?
+
 Irc:
     # FIXME hardcoded server/port
     # FIXME save nickname etc in a separate config
