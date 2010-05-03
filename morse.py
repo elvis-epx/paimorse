@@ -104,24 +104,24 @@ def cast_alphabet(input):
 cfg = {}
 cfg['sample.'] = None
 cfg['sample-'] = None
+cfg['sample '] = None
 cfg['.'] = 1.0
 
 
 class Beeper(object):
 	def __init__(self, duration, dot_duration):
-		pass
+		self.duration = duration
+
 	def play(self):
-		pass
-
-
-cfg['sample '] = Beeper(0, 0)
+		time.sleep(self.duration)
 
 
 if sys.platform == 'darwin':
 	from AppKit import NSSound, NSData
 
-	class MacOSXBeeper(object):
+	class MacOSXBeeper(Beeper):
 		def __init__(self, duration, dot_duration):
+			Beeper.__init__(self, duration, dot_duration)
 			self.impl = NSSound.alloc()
 			wavdata = generate_wave(cfg['freq'], cfg['volume'],
 						duration, dot_duration, True)
@@ -131,46 +131,31 @@ if sys.platform == 'darwin':
 		def play(self):
 			self.impl.setCurrentTime_(0)
 			self.impl.play()
+			Beeper.play(self)
 
 	cfg['class'] = MacOSXBeeper
 
 
 elif sys.platform == 'linux2':
-	import threading, linuxaudiodev
+	import ossaudiodev
 
-	class LinuxBeeperHelper(threading.Thread):
-		def __init__(self, audiodev, wavdata, observer):
-			threading.Thread.__init__(self)
-			self.audiodev = audiodev
-			self.wavdata = wavdata
-			self.observer = observer
-
-		def run(self):
-			self.audiodev.write(self.wavdata)
-			self.observer.helper_finished()
-			self.audiodev = self.wavdata = self.observer = None
-
-	class LinuxBeeper(object):
+	class LinuxBeeper(Beeper):
 		def __init__(self, duration, dot_duration):
+			Beeper.__init__(self, duration, dot_duration)
 			self.wavdata = generate_wave(cfg['freq'], cfg['volume'],
 						duration, dot_duration, False)
 			self.helper = None
 
 		def play(self):
-			while self.helper:
-				# should not happen
-				time.sleep(1)
-
-			self.helper = LinuxBeeperHelper(LinuxBeeper.impl,
-							self.wavdata,
-							self)
-			self.helper.start()
+			self.impl.writeall(self.wavdata)
+			self.impl.sync()
 
 		def helper_finished(self):
 			self.helper = None
 
-	LinuxBeeper.impl = linuxaudiodev.open("w")
-	LinuxBeeper.impl.setparameters(SAMPLING, 16, 1, linuxaudiodev.AFMT_S16_LE)
+	LinuxBeeper.impl = ossaudiodev.open("w")
+	LinuxBeeper.impl.setparameters(SAMPLING, 16, 1, ossaudiodev.AFMT_S16_LE)
+	LinuxBeeper.nonblock()
 
 	cfg['class'] = LinuxBeeper
 
@@ -186,8 +171,10 @@ def config_sound():
 
 	dash_duration = cfg['DOT_LENGTH'] * cfg['-']
 	dot_duration = cfg['DOT_LENGTH'] * cfg['.']
+	space_duration = cfg['DOT_LENGTH'] * cfg[' ']
 	cfg['sample.'] = cfg['class'](dot_duration, dot_duration)
 	cfg['sample-'] = cfg['class'](dash_duration, dot_duration)
+	cfg['sample '] = Beeper(space_duration, dot_duration)
 
 
 def config(freq=0, volume=0, wpm=0, dash=0, interbit=0, intersymbol=0):
@@ -279,8 +266,9 @@ def play_morse_bits(bits):
 
 		if lastbit in ".-":
 			time.sleep(cfg['interbit'] * cfg['DOT_LENGTH'])
-		beeper.play() # async
-		time.sleep(cfg[bit] * cfg['DOT_LENGTH'])
+
+		beeper.play() # blocks
+
 		lastbit = bit 
 
 
