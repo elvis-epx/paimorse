@@ -125,6 +125,7 @@ def cast_alphabet(input):
 
 cfg = {}
 cfg['.'] = 1.0
+cfg['compensation'] = 1.0
 
 
 class Beeper(object):
@@ -182,6 +183,7 @@ if sys.platform == 'darwin':
 
 	cfg['audio'] = MacOSXBeeper.new()
 	cfg['wavheader'] = True
+	cfg['compensation'] = 1.42
 
 
 elif sys.platform == 'linux2':
@@ -216,9 +218,7 @@ elif sys.platform == 'linux2':
 			if len(self.buf) > self.drain:
 				# Let's begin to play something
 				if self.impl.obuffree() > 0:
-					print "Non-blocking write"
 					written = self.impl.write(self.buf)
-					print "\t %d samples" % written
 					self.buf = self.buf[written:]
 
 			if len(self.buf) > 10 * self.drain:
@@ -226,7 +226,6 @@ elif sys.platform == 'linux2':
 				length = 5 * self.drain
 				data = self.buf[:length]
 				self.buf = self.buf[length:]
-				print "Blocking write of %d smamples" % length
 				self.impl.writeall(data)
 
 		def wait(self):
@@ -272,7 +271,7 @@ def config(freq=0, volume=0, wpm=0, dash=0, interbit=0, intersymbol=0):
 
 	wpm: speed in words per minute. Default: 20.0
 
-	     Dot sound length will be made = 1.425 / wpm,
+	     Dot sound length will be made = 1.42 / wpm,
 	     so e.g. 20 WPM translates to a dot of ~70ms,
 	     and all the rest will be proportional to this.
 
@@ -285,7 +284,7 @@ def config(freq=0, volume=0, wpm=0, dash=0, interbit=0, intersymbol=0):
 
 	if wpm >= 1:
 		cfg['WPM'] = float(wpm)
-		cfg['DOT_LENGTH'] = 1.425 / wpm
+		cfg['DOT_LENGTH'] = 1.42 / wpm / cfg['compensation']
 
 	if dash >= 1.0 and dash < 10:
 		cfg['-'] = float(dash)

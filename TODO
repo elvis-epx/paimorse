@@ -3,7 +3,10 @@ setup.py install
 man page for cw
 
 Mac: replace several NSSounds by a continuous CoreAudio stream
+
 Mac: playing slower than Linux (25 wps is actually playing 20 wps)
+	(currently worked aroung with an empirical compensation
+	 factor, still sounds better than Linux :P)
 
 Irc:
     # FIXME hardcoded server/port
