@@ -29,7 +29,7 @@ code = {'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.',
 }
 
 
-def ramp(pos, length, dot_length):
+def ramp(pos, length):
 	'''
 	Generates a fadein/fadeout ramp for sound
 	'''
@@ -45,7 +45,7 @@ def ramp(pos, length, dot_length):
 	return rvolume
 
 
-def generate_wave(freq, volume, duration, dot_duration, header):
+def generate_wave(freq, volume, duration):
 	'''
 	Generates a WAV data sequence for the given frequency,
 	volume and duration. The output could be written directly
@@ -58,14 +58,27 @@ def generate_wave(freq, volume, duration, dot_duration, header):
 	f.setsampwidth(2)
 	f.setframerate(SAMPLING)
 	sduration = int(SAMPLING * duration)
-	dot_sduration = int(SAMPLING * dot_duration)
 	samples = [ int(math.sin(freq * (n / float(SAMPLING)) * math.pi * 2) 
-			* 32767 * volume * ramp(n, sduration, dot_sduration)) \
+			* 32767 * volume * ramp(n, sduration)) \
 			for n in range(0, sduration) ]
 	f.writeframes(struct.pack('%dh' % len(samples), *samples))
 	data = wav.getvalue()
-	if not header:
-		data = data[44:]
+	return data
+
+def generate_silence(duration):
+	'''
+	Generates a WAV data silence.
+	'''
+
+	wav = StringIO.StringIO()
+	f = wave.open(wav, "w")
+	f.setnchannels(1)
+	f.setsampwidth(2)
+	f.setframerate(SAMPLING)
+	sduration = int(SAMPLING * duration)
+	samples = [ 0 for n in range(0, sduration) ]
+	f.writeframes(struct.pack('%dh' % len(samples), *samples))
+	data = wav.getvalue()
 	return data
 
 
@@ -103,38 +116,63 @@ def cast_alphabet(input):
 
 
 cfg = {}
-cfg['sample.'] = None
-cfg['sample-'] = None
-cfg['sample '] = None
 cfg['.'] = 1.0
 
 
 class Beeper(object):
-	def __init__(self, duration, dot_duration):
-		self.duration = duration
+	def __init__(self):
+		pass
 
-	def play(self):
-		time.sleep(self.duration)
+	def play(self, bit):
+		print bit
+		time.sleep(cfg['duration' + bit])
+
+	def wait(self):
+		pass
+
+
+cfg['audio'] = Beeper()
 
 
 if sys.platform == 'darwin':
-	from AppKit import NSSound, NSData
+	from AppKit import NSObject, NSSound, NSData
+	from PyObjCTools import AppHelper
 
-	class MacOSXBeeper(Beeper):
-		def __init__(self, duration, dot_duration):
-			Beeper.__init__(self, duration, dot_duration)
+	class MacOSXBeeper(NSObject, object):
+	    	def init(self):
+			cfg['queue'] = []
+			cfg['playing'] = False
+			return self
+
+		def play(self, bit):
+			cfg['queue'] += bit
+			self.do_play()
+
+		def do_play(self):
+			if cfg['playing'] or not cfg['queue']:
+				return
+			cfg['playing'] = True
+			bit = cfg['queue'][0]
+			del cfg['queue'][0]
+			wavdata = cfg["sample" + bit]
 			self.impl = NSSound.alloc()
-			wavdata = generate_wave(cfg['freq'], cfg['volume'],
-						duration, dot_duration, True)
 			data = NSData.alloc().initWithBytes_length_(wavdata, len(wavdata))
 			self.impl.initWithData_(data)
-		
-		def play(self):
-			self.impl.setCurrentTime_(0)
+			self.impl.setDelegate_(self)
 			self.impl.play()
-			Beeper.play(self)
 
-	cfg['class'] = MacOSXBeeper
+		def sound_didFinishPlaying_(self, s, p):
+			cfg['playing'] = False
+			if cfg['queue']:
+				self.do_play()
+			else:
+				AppHelper.stopEventLoop()
+
+		def wait(self):
+			AppHelper.runConsoleEventLoop()
+			pass
+
+	cfg['audio'] = MacOSXBeeper.new()
 
 
 elif sys.platform == 'linux2':
@@ -158,25 +196,28 @@ elif sys.platform == 'linux2':
 		def helper_finished(self):
 			self.helper = None
 
-	cfg['class'] = LinuxBeeper
+	cfg['audio'] = LinuxBeeper()
 
 
-def config_sound():
+def make_audio_samples():
 	'''
-	Prepares the audio player. The result is put in
-	module.cfg['sample.'] and module.cfg['sample-']. 
-
-	The sampler objects will support a very simple interface:
-	async play().
+	Prepares audio samples.
 	'''
 
-	dash_duration = cfg['DOT_LENGTH'] * cfg['-']
 	dot_duration = cfg['DOT_LENGTH'] * cfg['.']
+	dash_duration = cfg['DOT_LENGTH'] * cfg['-']
 	space_duration = cfg['DOT_LENGTH'] * cfg[' ']
-	cfg['sample.'] = cfg['class'](dot_duration, dot_duration)
-	cfg['sample-'] = cfg['class'](dash_duration, dot_duration)
-	cfg['sample '] = Beeper(space_duration, dot_duration)
+	interbit_duration = cfg['DOT_LENGTH'] * cfg['i']
 
+	cfg['sample.'] = generate_wave(cfg['freq'], cfg['volume'], dot_duration)
+	cfg['sample-'] = generate_wave(cfg['freq'], cfg['volume'], dash_duration)
+	cfg['sample '] = generate_silence(space_duration)
+	cfg['samplei'] = generate_silence(interbit_duration)
+
+	cfg['duration.'] = dot_duration
+	cfg['duration-'] = dash_duration
+	cfg['duration '] = space_duration
+	cfg['durationi'] = interbit_duration
 
 def config(freq=0, volume=0, wpm=0, dash=0, interbit=0, intersymbol=0):
 	'''
@@ -204,27 +245,23 @@ def config(freq=0, volume=0, wpm=0, dash=0, interbit=0, intersymbol=0):
 	if wpm >= 1:
 		cfg['WPM'] = float(wpm)
 		cfg['DOT_LENGTH'] = 1.2 / wpm
-		cfg['sample.'] = None
 
 	if dash >= 1.0 and dash < 10:
 		cfg['-'] = float(dash)
-		cfg['sample.'] = None
 
 	if interbit > 0 and interbit < 10:
-		cfg['interbit'] = float(interbit)
-		cfg['sample.'] = None
+		cfg['i'] = float(interbit)
 
 	if intersymbol > 0 and intersymbol < 10:
 		cfg[' '] = float(intersymbol)
-		cfg['sample.'] = None
 
 	if freq > 0 and freq <= 11025:
 		cfg['freq'] = float(freq)
-		cfg['sample.'] = None
 
 	if volume > 0 and volume <= 1.0:
 		cfg['volume'] = float(volume)
-		cfg['sample.'] = None
+
+	make_audio_samples()
 
 
 def encode_morse(input):
@@ -255,22 +292,14 @@ def play_morse_bits(bits):
 	Plays a Morse 'tape' with dashes, dots etc.
 	The accepted format is the one returned by encode_morse().
 	'''
-	if not cfg['sample.']:
-		config_sound()
 
 	lastbit = ''
 	for bit in bits:
-		try:
-			beeper = cfg['sample' + bit]
-		except KeyError:
-			continue
-
 		if lastbit in ".-":
-			time.sleep(cfg['interbit'] * cfg['DOT_LENGTH'])
-
-		beeper.play() # blocks
-
+			cfg['audio'].play('i')
+		cfg['audio'].play(bit) 
 		lastbit = bit 
+	cfg['audio'].wait()
 
 
 def play(text):
