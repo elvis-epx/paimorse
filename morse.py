@@ -63,6 +63,10 @@ def generate_wave(freq, volume, duration):
 			for n in range(0, sduration) ]
 	f.writeframes(struct.pack('%dh' % len(samples), *samples))
 	data = wav.getvalue()
+
+	if not cfg['wavheader']:
+		data = data[44:]
+
 	return data
 
 def generate_silence(duration):
@@ -79,6 +83,10 @@ def generate_silence(duration):
 	samples = [ 0 for n in range(0, sduration) ]
 	f.writeframes(struct.pack('%dh' % len(samples), *samples))
 	data = wav.getvalue()
+
+	if not cfg['wavheader']:
+		data = data[44:]
+
 	return data
 
 
@@ -173,30 +181,63 @@ if sys.platform == 'darwin':
 			pass
 
 	cfg['audio'] = MacOSXBeeper.new()
+	cfg['wavheader'] = True
 
 
 elif sys.platform == 'linux2':
 	import ossaudiodev
+	import threading
 
-	class LinuxBeeper(Beeper):
-		def __init__(self, duration, dot_duration):
-			Beeper.__init__(self, duration, dot_duration)
-			self.wavdata = generate_wave(cfg['freq'], cfg['volume'],
-						duration, dot_duration, False)
-			self.helper = None
+	class OSSBeeper(Beeper):
+		def open_audio(self):
+			if self.impl:
+				self.close_audio()
+			self.impl = ossaudiodev.open("/dev/dsp", "w")
+			self.impl.setparameters(ossaudiodev.AFMT_S16_LE, 1, SAMPLING)
+			self.impl.nonblock()
 
-		def play(self):
-			tm = time.time() + self.duration
-			impl = ossaudiodev.open("/dev/dsp", "w")
-			impl.setparameters(ossaudiodev.AFMT_S16_LE, 1, SAMPLING)
-			impl.write(self.wavdata)
-			impl.close()
-			time.sleep(max(0, tm - time.time()))
+		def close_audio(self):
+			if self.impl:
+				self.impl.close()
+			self.impl = None
 
-		def helper_finished(self):
-			self.helper = None
+		def __init__(self):
+			self.impl = None
+			self.buf = ""
+			self.open_audio()
+			self.drain = self.impl.bufsize()
 
-	cfg['audio'] = LinuxBeeper()
+		def play(self, bit):
+			if not self.impl:
+				self.open_audio()
+
+			self.buf += cfg["sample" + bit]
+
+			if len(self.buf) > self.drain:
+				# Let's begin to play something
+				if self.impl.obuffree() > 0:
+					print "Non-blocking write"
+					written = self.impl.write(self.buf)
+					print "\t %d samples" % written
+					self.buf = self.buf[written:]
+
+			if len(self.buf) > 10 * self.drain:
+				# Does not let buffer grow too long
+				length = 5 * self.drain
+				data = self.buf[:length]
+				self.buf = self.buf[length:]
+				print "Blocking write of %d smamples" % length
+				self.impl.writeall(data)
+
+		def wait(self):
+			if self.buf:
+				# Make buffer empty
+				data = self.buf
+				self.buf = ""
+				self.impl.writeall(data)
+
+	cfg['audio'] = OSSBeeper()
+	cfg['wavheader'] = False
 
 
 def make_audio_samples():
@@ -231,20 +272,20 @@ def config(freq=0, volume=0, wpm=0, dash=0, interbit=0, intersymbol=0):
 
 	wpm: speed in words per minute. Default: 20.0
 
-	     Dot sound length will be made = 1.2 / wpm,
-	     so e.g. 20 WPM translates to a dot of 60ms,
-	     and all other times will be proportional to this.
+	     Dot sound length will be made = 1.425 / wpm,
+	     so e.g. 20 WPM translates to a dot of ~70ms,
+	     and all the rest will be proportional to this.
 
 	dash: dash sound length, in dots. Default: 3 times a dot.
 
-	interbit: silence between Morse symbols, in dots. Default: 0.5 dots.
+	interbit: silence between Morse symbols, in dots. Default: 0.6 dots.
 
-	intersymbol: silence between two letters, in dots. Default: 1.0 dot.
+	intersymbol: silence between two letters, in dots. Default: 2 dots.
 	'''
 
 	if wpm >= 1:
 		cfg['WPM'] = float(wpm)
-		cfg['DOT_LENGTH'] = 1.2 / wpm
+		cfg['DOT_LENGTH'] = 1.425 / wpm
 
 	if dash >= 1.0 and dash < 10:
 		cfg['-'] = float(dash)
@@ -311,4 +352,4 @@ def play(text):
 	play_morse_bits(encode_morse(text))
 
 
-config(800, 0.25, 12, 3, 0.6, 2.5)
+config(800, 0.25, 12, 3, 0.6, 2)

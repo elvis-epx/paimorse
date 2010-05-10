@@ -2,8 +2,8 @@ GUI
 setup.py install
 man page for cw
 
-sleep() may not have the desired resolution;
-replace by writing device all the time?
+Mac: replace several NSSounds by a continuous CoreAudio stream
+Mac: playing slower than Linux (25 wps is actually playing 20 wps)
 
 Irc:
     # FIXME hardcoded server/port
