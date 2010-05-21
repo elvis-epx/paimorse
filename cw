@@ -109,3 +109,5 @@ while True:
 	print fixed_text
 	print bits
 	play_morse_bits(bits)
+
+flush()

@@ -37,7 +37,7 @@ class MacOSXBeeper(NSObject, object):
 		else:
 			AppHelper.stopEventLoop()
 
-	def wait(self):
+	def flush(self):
 		AppHelper.runConsoleEventLoop()
 		pass
 

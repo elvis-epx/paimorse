@@ -4,7 +4,6 @@
 # Copyright (C) 2010 Elvis Pfutzenreuter <epx@epx.com.br>
 
 import ossaudiodev
-import threading
 
 class OSSBeeper(Beeper):
 	def open_audio(self):
@@ -24,7 +23,7 @@ class OSSBeeper(Beeper):
 		self.buf = ""
 		self.sampling_rate = sampling_rate
 		self.open_audio()
-		self.drain = self.impl.bufsize()
+		self.watermark = self.impl.bufsize()
 
 	def play(self, sample):
 		if not self.impl:
@@ -32,22 +31,22 @@ class OSSBeeper(Beeper):
 
 		self.buf += sample
 
-		if len(self.buf) > self.drain:
+		if len(self.buf) > self.watermark:
 			# Let's begin to play something
 			if self.impl.obuffree() > 0:
 				written = self.impl.write(self.buf)
 				self.buf = self.buf[written:]
 
-		if len(self.buf) > 10 * self.drain:
+		if len(self.buf) > 10 * self.watermark:
 			# Does not let buffer grow too long
-			length = 5 * self.drain
+			length = 5 * self.watermark
 			data = self.buf[:length]
 			self.buf = self.buf[length:]
 			self.impl.writeall(data)
 
-	def wait(self):
+	def flush(self):
 		if self.buf:
-			# Make buffer empty
+			# Make sure buffer goes out
 			data = self.buf
 			self.buf = ""
 			self.impl.writeall(data)

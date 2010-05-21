@@ -9,6 +9,10 @@ import time
 
 CHUNK = 512 # demanded by coreaudio module
 
+# TODO define this as a multiple of coreaudio buffer
+HALFBUF = 50000
+MAXBUF = HALFBUF * 2
+
 class CoreAudioBeeper(object):
 	def callback(self):
 		buf = None
@@ -25,8 +29,10 @@ class CoreAudioBeeper(object):
 			buf = self.buf[:CHUNK]
 			self.buf = self.buf[CHUNK:]
 
-		print "Tocando buffer de comprimento", len(buf)
 		return buf
+
+	def audio_closed(self):
+		pass
 
 	def open_audio(self):
 		if not self.active:
@@ -50,23 +56,24 @@ class CoreAudioBeeper(object):
 
 		if len(self.buf) > CHUNK:
 			# Let's begin to play something
-			self.active_audio()
+			self.open_audio()
 
-		if len(self.buf) > 10 * CHUNK:
+		if len(self.buf) > MAXBUF:
 			# Does not let buffer grow too long
-			# FIXME wait for 5 * drain to go out
-			pass
+			self._flush(False)
 
-	def wait(self):
+	def _flush(self, complete):
+		# Does actual buffer flushing
+		while (complete and self.buf) or (not complete and len(self.buf) > HALFBUF):
+			print "buffer %d %s, waiting" % (len(self.buf), complete)
+			time.sleep(0.1)
+			# FIXME wait buffer empty in a more proper way
+
+	def flush(self):
 		# play whatever we have
 		if self.buf and not self.active:
 			self.active_audio()
-		while self.buf:
-			print "buffer not empty, waiting"
-			time.sleep(1)
-			# FIXME wait buffer empty in a more proper way
-		# FIXME close + immediate open?
-
+		self._flush(True)
 
 # Have to initialize the threading mechanisms in order for PyGIL_Ensure to work
 thread.start_new_thread(lambda: None, ())
