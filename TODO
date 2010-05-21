@@ -1,8 +1,10 @@
+FIXMEs
+
 GUI
 setup.py install
 man page for cw
 
-Mac: replace several NSSounds by a continuous CoreAudio stream
+SAMPLING em osxca
 
 Mac: playing slower than Linux (25 wps is actually playing 20 wps)
 	(currently worked aroung with an empirical compensation

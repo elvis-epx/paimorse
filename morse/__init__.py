@@ -4,8 +4,9 @@
 # Copyright (C) 2010 Elvis Pfutzenreuter <epx@epx.com.br>
 
 import wave, struct, StringIO, math, time, sys
+import morse_audio
 
-SAMPLING = 22050
+SAMPLING = 44100
 
 code = {'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.',
 	'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---',
@@ -44,50 +45,50 @@ def ramp(pos, length):
 		
 	return rvolume
 
+def generate_float_wave(freq, volume, duration):
+	sduration = int(SAMPLING * duration)
+
+	if volume > 0.0:
+		samples = [ math.sin(freq * (n / float(SAMPLING))
+				     * math.pi * 2) 
+				* volume * ramp(n, sduration) \
+				for n in range(0, sduration) ]
+	else:
+		samples = [ 0.0 for n in range(0, sduration) ]
+
+	return samples
+
 
 def generate_wave(freq, volume, duration):
 	'''
 	Generates a WAV data sequence for the given frequency,
 	volume and duration. The output could be written directly
-	into a .wav file.
+	into a .wav file (except when 'float' format is requested).
 	'''
 
-	wav = StringIO.StringIO()
-	f = wave.open(wav, "w")
-	f.setnchannels(1)
-	f.setsampwidth(2)
-	f.setframerate(SAMPLING)
-	sduration = int(SAMPLING * duration)
-	samples = [ int(math.sin(freq * (n / float(SAMPLING)) * math.pi * 2) 
-			* 32767 * volume * ramp(n, sduration)) \
-			for n in range(0, sduration) ]
-	f.writeframes(struct.pack('%dh' % len(samples), *samples))
-	data = wav.getvalue()
+	samples = generate_float_wave(freq, volume, duration)
 
-	if not cfg['wavheader']:
-		data = data[44:]
+	if cfg['wavformat'] == 'str':
+		samples = [ int(n * 32767) for n in samples ]
+		wav = StringIO.StringIO()
+		f = wave.open(wav, "w")
+		f.setnchannels(1)
+		f.setsampwidth(2)
+		f.setframerate(SAMPLING)
+		f.writeframes(struct.pack('%dh' % len(samples), *samples))
+		samples = wav.getvalue()
 
-	return data
+		if not cfg['wavheader']:
+			samples = samples[44:]
+
+	return samples
+
 
 def generate_silence(duration):
 	'''
 	Generates a WAV data silence.
 	'''
-
-	wav = StringIO.StringIO()
-	f = wave.open(wav, "w")
-	f.setnchannels(1)
-	f.setsampwidth(2)
-	f.setframerate(SAMPLING)
-	sduration = int(SAMPLING * duration)
-	samples = [ 0 for n in range(0, sduration) ]
-	f.writeframes(struct.pack('%dh' % len(samples), *samples))
-	data = wav.getvalue()
-
-	if not cfg['wavheader']:
-		data = data[44:]
-
-	return data
+	return generate_wave(0.0, 0.0, duration)
 
 
 nonascii = (	(u'çÇ©',        'C'),
@@ -125,118 +126,8 @@ def cast_alphabet(input):
 
 cfg = {}
 cfg['.'] = 1.0
-cfg['compensation'] = 1.0
 
-
-class Beeper(object):
-	def __init__(self):
-		pass
-
-	def play(self, bit):
-		print bit
-		time.sleep(cfg['duration' + bit])
-
-	def wait(self):
-		pass
-
-
-cfg['audio'] = Beeper()
-
-
-if sys.platform == 'darwin':
-	from AppKit import NSObject, NSSound, NSData
-	from PyObjCTools import AppHelper
-
-	class MacOSXBeeper(NSObject, object):
-	    	def init(self):
-			cfg['queue'] = []
-			cfg['playing'] = False
-			return self
-
-		def play(self, bit):
-			cfg['queue'] += bit
-			self.do_play()
-
-		def do_play(self):
-			if cfg['playing'] or not cfg['queue']:
-				return
-			cfg['playing'] = True
-			bit = cfg['queue'][0]
-			del cfg['queue'][0]
-			wavdata = cfg["sample" + bit]
-			self.impl = NSSound.alloc()
-			data = NSData.alloc().initWithBytes_length_(wavdata, len(wavdata))
-			self.impl.initWithData_(data)
-			self.impl.setDelegate_(self)
-			self.impl.play()
-
-		def sound_didFinishPlaying_(self, s, p):
-			cfg['playing'] = False
-			if cfg['queue']:
-				self.do_play()
-			else:
-				AppHelper.stopEventLoop()
-
-		def wait(self):
-			AppHelper.runConsoleEventLoop()
-			pass
-
-	cfg['audio'] = MacOSXBeeper.new()
-	cfg['wavheader'] = True
-	cfg['compensation'] = 1.42
-
-
-elif sys.platform == 'linux2':
-	import ossaudiodev
-	import threading
-
-	class OSSBeeper(Beeper):
-		def open_audio(self):
-			if self.impl:
-				self.close_audio()
-			self.impl = ossaudiodev.open("/dev/dsp", "w")
-			self.impl.setparameters(ossaudiodev.AFMT_S16_LE, 1, SAMPLING)
-			self.impl.nonblock()
-
-		def close_audio(self):
-			if self.impl:
-				self.impl.close()
-			self.impl = None
-
-		def __init__(self):
-			self.impl = None
-			self.buf = ""
-			self.open_audio()
-			self.drain = self.impl.bufsize()
-
-		def play(self, bit):
-			if not self.impl:
-				self.open_audio()
-
-			self.buf += cfg["sample" + bit]
-
-			if len(self.buf) > self.drain:
-				# Let's begin to play something
-				if self.impl.obuffree() > 0:
-					written = self.impl.write(self.buf)
-					self.buf = self.buf[written:]
-
-			if len(self.buf) > 10 * self.drain:
-				# Does not let buffer grow too long
-				length = 5 * self.drain
-				data = self.buf[:length]
-				self.buf = self.buf[length:]
-				self.impl.writeall(data)
-
-		def wait(self):
-			if self.buf:
-				# Make buffer empty
-				data = self.buf
-				self.buf = ""
-				self.impl.writeall(data)
-
-	cfg['audio'] = OSSBeeper()
-	cfg['wavheader'] = False
+morse_audio.configure(SAMPLING, cfg)
 
 
 def make_audio_samples():
@@ -336,8 +227,8 @@ def play_morse_bits(bits):
 	lastbit = ''
 	for bit in bits:
 		if lastbit in ".-":
-			cfg['audio'].play('i')
-		cfg['audio'].play(bit) 
+			cfg['audio'].play(cfg['sample' + 'i'])
+		cfg['audio'].play(cfg['sample' + bit]) 
 		lastbit = bit 
 	cfg['audio'].wait()
 
