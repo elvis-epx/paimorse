@@ -230,6 +230,7 @@ def play_morse_bits(bits):
 			cfg['audio'].play(cfg['sample' + 'i'])
 		cfg['audio'].play(cfg['sample' + bit]) 
 		lastbit = bit 
+	cfg['audio'].eol_flush()
 
 
 def play(text):
@@ -241,12 +242,12 @@ def play(text):
 	play_morse_bits(encode_morse(text))
 
 
-def flush():
+def final_flush():
 	'''
 	Makes sure all pending audio has been played.
 	Blocks until audio has been played.
 	'''
-	cfg['audio'].flush()
+	cfg['audio'].final_flush()
 
 
 config(800, 0.25, 12, 3, 0.6, 2)

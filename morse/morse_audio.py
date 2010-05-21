@@ -13,9 +13,11 @@ class Beeper(object):
 		print bit
 		time.sleep(cfg['duration' + bit])
 
-	def flush(self):
+	def eol_flush(self):
 		pass
 
+	def final_flush(self):
+		pass
 
 def configure(sampling_rate, cfg):
 	cfg['audio'] = Beeper()

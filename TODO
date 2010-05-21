@@ -11,6 +11,6 @@ Mac: playing slower than Linux (25 wps is actually playing 20 wps)
 	 factor, still sounds better than Linux :P)
 
 Irc:
-    # FIXME hardcoded server/port
-    # FIXME save nickname etc in a separate config
-    # FIXME allow to talk, too
+    # hardcoded server/port
+    # save nickname etc in a separate config
+    # allow to talk, too

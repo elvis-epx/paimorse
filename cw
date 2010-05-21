@@ -110,4 +110,4 @@ while True:
 	print bits
 	play_morse_bits(bits)
 
-flush()
+final_flush()

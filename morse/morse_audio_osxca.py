@@ -4,6 +4,7 @@
 # Copyright (C) 2010 Elvis Pfutzenreuter <epx@epx.com.br>
 
 import thread
+from threading import RLock, Event
 import coreaudio
 import time
 
@@ -13,23 +14,36 @@ CHUNK = 512 # demanded by coreaudio module
 HALFBUF = 50000
 MAXBUF = HALFBUF * 2
 
+
 class CoreAudioBeeper(object):
+
 	def callback(self):
-		buf = None
+		# Called in another thread's context
+		chunk = None
+		last_chunk = False
+
+		self.lock.acquire()
 
 		if not self.buf:
 			self.close_audio()
 		elif len(self.buf) < CHUNK:
-			buf = self.buf
+			chunk = self.buf
 			# Fill with silence to have len == CHUNK
-			buf.extend([0.0 for i in xrange(0, CHUNK - len(buf))])
+			chunk.extend([0.0 for i in xrange(0, CHUNK - len(chunk))])
 			self.buf = []
-			self.close_audio()
+			last_chunk = True
 		else:
-			buf = self.buf[:CHUNK]
+			chunk = self.buf[:CHUNK]
 			self.buf = self.buf[CHUNK:]
 
-		return buf
+		self.lock.release()
+
+		if last_chunk:
+			self.close_audio()
+
+		self.event.set()
+
+		return chunk
 
 	def audio_closed(self):
 		pass
@@ -43,36 +57,51 @@ class CoreAudioBeeper(object):
 		if self.active:
 			coreaudio.stopAudio(self)
 		self.active = False
-		self.buf = []
 
 	def __init__(self, sampling_rate):
 		self.active = False
 		self.buf = []
 		self.sampling_rate = sampling_rate
-		CHUNK = 512
+		self.event = Event()
+		self.lock = RLock()
 
 	def play(self, sample):
+		self.lock.acquire()
 		self.buf.extend(sample)
+		l = len(self.buf)
+		self.lock.release()
 
-		if len(self.buf) > CHUNK:
+		if l > CHUNK:
 			# Let's begin to play something
 			self.open_audio()
 
-		if len(self.buf) > MAXBUF:
+		if l > MAXBUF:
 			# Does not let buffer grow too long
 			self._flush(False)
 
 	def _flush(self, complete):
-		# Does actual buffer flushing
-		while (complete and self.buf) or (not complete and len(self.buf) > HALFBUF):
-			print "buffer %d %s, waiting" % (len(self.buf), complete)
-			time.sleep(0.1)
-			# FIXME wait buffer empty in a more proper way
+		# Blocks until buffer is half or fully emptied
+		self.lock.acquire()
+		l = len(self.buf)
+		self.lock.release()
+		while (complete and l > 0) or (not complete and l > HALFBUF):
+			self.event.wait()
+			self.event.clear()
+			self.lock.acquire()
+			l = len(self.buf)
+			self.lock.release()
 
-	def flush(self):
-		# play whatever we have
-		if self.buf and not self.active:
+	def eol_flush(self):
+		# put to play whatever we have
+		self.lock.acquire()
+		notempty = not not self.buf
+		self.lock.release()
+
+		if notempty and not self.active:
 			self.active_audio()
+
+	def final_flush(self):
+		self.eol_flush()
 		self._flush(True)
 
 # Have to initialize the threading mechanisms in order for PyGIL_Ensure to work
@@ -82,3 +111,4 @@ thread.start_new_thread(lambda: None, ())
 def factory(sampling_rate):
 	return CoreAudioBeeper(sampling_rate)
 
+# FIXME protect callback() with mutex

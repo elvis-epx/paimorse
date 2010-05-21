@@ -44,12 +44,19 @@ class OSSBeeper(Beeper):
 			self.buf = self.buf[length:]
 			self.impl.writeall(data)
 
-	def flush(self):
+	def eol_flush(self):
 		if self.buf:
 			# Make sure buffer goes out
 			data = self.buf
 			self.buf = ""
 			self.impl.writeall(data)
 
+	def final_flush(self):
+		self.eol_flush()
+
 def factory(sampling_rate):
 	return OSSBeeper(sampling_rate)
+
+# FIXME after begins to play, should not stop until buffer is empty
+# FIXME put in its own thread
+# FIXME implement eol_flush
