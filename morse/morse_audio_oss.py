@@ -5,7 +5,7 @@
 
 import ossaudiodev
 
-class OSSBeeper(Beeper):
+class Beeper(object):
 	def open_audio(self):
 		if self.impl:
 			self.close_audio()
@@ -62,4 +62,4 @@ class OSSBeeper(Beeper):
 		self.eol_flush()
 
 def factory(sampling_rate):
-	return OSSBeeper(sampling_rate)
+	return Beeper(sampling_rate)
