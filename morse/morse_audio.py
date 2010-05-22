@@ -29,14 +29,13 @@ def configure(sampling_rate, cfg):
 			cfg['audio'] = morse_audio_osxca.factory(sampling_rate)
 			cfg['wavheader'] = False
 			cfg['wavformat'] = 'float'
-			cfg['compensation'] = 1
 		except ImportError:
 			print >> sys.stderr, "CoreAudio plugin not found/not compiled; Using secondary NSAudio plugin"
 			import morse_audio_osxna
 			cfg['audio'] = morse_audio_osxna.factory(sampling_rate)
 			cfg['wavheader'] = True
 			cfg['wavformat'] = 'str'
-			cfg['compensation'] = 1.42
+			cfg['compensation'] = 1.15
 
 	elif sys.platform == 'linux2':
 		import morse_audio_oss
