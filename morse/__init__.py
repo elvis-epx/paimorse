@@ -4,7 +4,7 @@
 # Copyright (C) 2010 Elvis Pfutzenreuter <epx@epx.com.br>
 
 import wave, struct, StringIO, math, time, sys
-import morse_audio
+from . import audio
 
 SAMPLING = 44100
 
@@ -127,7 +127,7 @@ def cast_alphabet(input):
 cfg = {}
 cfg['.'] = 1.0
 
-morse_audio.configure(SAMPLING, cfg)
+audio.configure(SAMPLING, cfg)
 
 
 def make_audio_samples():

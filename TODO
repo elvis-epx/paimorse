@@ -1,14 +1,8 @@
-FIXMEs
-
 GUI
 setup.py install
 man page for cw
-
-SAMPLING em osxca
-
-Mac: playing slower than Linux (25 wps is actually playing 20 wps)
-	(currently worked aroung with an empirical compensation
-	 factor, still sounds better than Linux :P)
+enforce sampling rate em osxca
+osxca: buffer multiple of coreaudio buffer
 
 Irc:
     # hardcoded server/port
