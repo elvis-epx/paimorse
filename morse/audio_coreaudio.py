@@ -5,7 +5,7 @@
 
 import thread
 from threading import RLock, Event
-import coreaudio
+from . import coreaudio
 import time
 
 CHUNK = 512 # demanded by coreaudio module
