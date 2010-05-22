@@ -132,6 +132,7 @@ cdef extern from "CoreAudio/AudioHardware.h":
         AudioDeviceID inDevice,
         AudioDeviceIOProc inProc)
 
+cdef UInt32 bufSize = 1024
 
 cdef OSStatus audioDeviceIOCallback(
         AudioDeviceID			inDevice,
@@ -158,7 +159,7 @@ cdef OSStatus audioDeviceIOCallback(
     rv = data.callback()
 
     buffer = <float *>outOutputData.mBuffers[0].mData
-    for frame from 0 <= frame < 512:
+    for frame from 0 <= frame < bufSize:
         v = rv[frame]
         buffer[2* frame + 0] = v
         buffer[2 * frame + 1] = v
@@ -167,7 +168,7 @@ cdef OSStatus audioDeviceIOCallback(
     return 0
 
 
-def installAudioCallback(cb):
+def initAudio():
     """Code stolen from:
     http://www.omnigroup.com/mailman/archive/macosx-dev/2000-October/005756.html
     """
@@ -214,7 +215,6 @@ def installAudioCallback(cb):
     debug("Sample rate: %d" % deviceSampleRate)
 
     # Get the buffer size
-    cdef UInt32 bufSize
     propertySize = sizeof(bufSize)
 
     status = AudioDeviceGetProperty(outputDeviceID, 0, False, kAudioDevicePropertyBufferFrameSize, &propertySize, &bufSize)
@@ -238,7 +238,13 @@ def installAudioCallback(cb):
     debug("\tChannels per frame: %d" % outputStreamBasicDescription.mChannelsPerFrame)
     debug("\tBits per channel: %d" % outputStreamBasicDescription.mBitsPerChannel)
 
+    return (outputDeviceID, deviceSampleRate, bufSize)
+
+
+def installAudioCallback(AudioDeviceID outputDeviceID, cb):
+    cdef OSStatus status
     cb.deviceId = outputDeviceID
+
     status = AudioDeviceAddIOProc(outputDeviceID, <AudioDeviceIOProc>&audioDeviceIOCallback, <void *>cb)
     if status:
         raise RuntimeError, "Failed to add the IO Proc."
@@ -247,6 +253,7 @@ def installAudioCallback(cb):
     if status:
         raise RuntimeError, "Couldn't start the device."
     debug("done.")
+
 
 def stopAudio(obj):
     debug("stopping")

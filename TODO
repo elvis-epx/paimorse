@@ -1,8 +1,6 @@
 GUI
 setup.py install
 man page for cw
-enforce sampling rate em osxca
-osxca: buffer multiple of coreaudio buffer
 
 Irc:
     # hardcoded server/port

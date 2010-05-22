@@ -26,11 +26,21 @@ def configure(sampling_rate, cfg):
 	if sys.platform == 'darwin':
 		try:
 			from . import audio_coreaudio
-			cfg['audio'] = audio_coreaudio.factory(sampling_rate)
+			cfg['audio'] = audio_coreaudio.factory()
+			# CoreAudio imposes a sampling rate on us
+			sampling_rate = cfg['audio'].sampling_rate
 			cfg['wavheader'] = False
 			cfg['wavformat'] = 'float'
 		except ImportError:
-			print >> sys.stderr, "CoreAudio plugin not found/not compiled; Using secondary NSAudio plugin"
+			print >> sys.stderr, "CoreAudio plugin not found, using NSAudio"
+			from . import audio_nsaudio
+			cfg['audio'] = audio_nsaudio.factory(sampling_rate)
+			cfg['wavheader'] = True
+			cfg['wavformat'] = 'str'
+			cfg['compensation'] = 1.15
+		except RuntimeError, e:
+			print >> sys.stderr, "CoreAudio device could not be configured, using NSAudio"
+			print >> sys.stderr, "(Error: %s)" % (" ".join(e.args))
 			from . import audio_nsaudio
 			cfg['audio'] = audio_nsaudio.factory(sampling_rate)
 			cfg['wavheader'] = True
@@ -42,3 +52,5 @@ def configure(sampling_rate, cfg):
 		cfg['audio'] = audio_oss.factory(sampling_rate)
 		cfg['wavheader'] = False
 		cfg['wavformat'] = 'str'
+
+	return sampling_rate

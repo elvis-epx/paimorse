@@ -8,15 +8,8 @@ from threading import RLock, Event
 from . import coreaudio
 import time
 
-CHUNK = 512 # demanded by coreaudio module
 
-# TODO define this as a multiple of coreaudio buffer
-HALFBUF = 50000
-MAXBUF = HALFBUF * 2
-
-
-class CoreAudioBeeper(object):
-
+class Beeper(object):
 	def callback(self):
 		# Called in another thread's context
 		chunk = None
@@ -26,15 +19,15 @@ class CoreAudioBeeper(object):
 
 		if not self.buf:
 			self.close_audio()
-		elif len(self.buf) < CHUNK:
+		elif len(self.buf) < self.chunksize:
 			chunk = self.buf
-			# Fill with silence to have len == CHUNK
-			chunk.extend([0.0 for i in xrange(0, CHUNK - len(chunk))])
+			# Fill with silence to have len == self.chunksize
+			chunk.extend([0.0 for i in xrange(0, self.chunksize - len(chunk))])
 			self.buf = []
 			last_chunk = True
 		else:
-			chunk = self.buf[:CHUNK]
-			self.buf = self.buf[CHUNK:]
+			chunk = self.buf[:self.chunksize]
+			self.buf = self.buf[self.chunksize:]
 
 		self.lock.release()
 
@@ -50,7 +43,7 @@ class CoreAudioBeeper(object):
 
 	def open_audio(self):
 		if not self.active:
-			coreaudio.installAudioCallback(self)
+			coreaudio.installAudioCallback(self.audio_id, self)
 		self.active = True
 
 	def close_audio(self):
@@ -58,10 +51,13 @@ class CoreAudioBeeper(object):
 			coreaudio.stopAudio(self)
 		self.active = False
 
-	def __init__(self, sampling_rate):
+	def __init__(self):
+		self.audio_id, self.sampling_rate, self.chunksize = coreaudio.initAudio()
+		# FIXME capture and reraise as ImportError
+		self.halfbuf = self.chunksize * 10
+		self.maxbuf = self.halfbuf * 2
 		self.active = False
 		self.buf = []
-		self.sampling_rate = sampling_rate
 		self.event = Event()
 		self.lock = RLock()
 
@@ -71,11 +67,11 @@ class CoreAudioBeeper(object):
 		l = len(self.buf)
 		self.lock.release()
 
-		if l > CHUNK:
+		if l > self.chunksize:
 			# Let's begin to play something
 			self.open_audio()
 
-		if l > MAXBUF:
+		if l > self.maxbuf:
 			# Does not let buffer grow too long
 			self._flush(False)
 
@@ -84,7 +80,7 @@ class CoreAudioBeeper(object):
 		self.lock.acquire()
 		l = len(self.buf)
 		self.lock.release()
-		while (complete and l > 0) or (not complete and l > HALFBUF):
+		while (complete and l > 0) or (not complete and l > self.halfbuf):
 			self.event.wait()
 			self.event.clear()
 			self.lock.acquire()
@@ -108,5 +104,5 @@ class CoreAudioBeeper(object):
 thread.start_new_thread(lambda: None, ())
 
 
-def factory(sampling_rate):
-	return CoreAudioBeeper(sampling_rate)
+def factory():
+	return Beeper()

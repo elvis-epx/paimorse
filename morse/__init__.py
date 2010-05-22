@@ -127,7 +127,7 @@ def cast_alphabet(input):
 cfg = {}
 cfg['.'] = 1.0
 
-audio.configure(SAMPLING, cfg)
+SAMPLING = audio.configure(SAMPLING, cfg)
 
 
 def make_audio_samples():
