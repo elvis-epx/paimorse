@@ -110,5 +110,3 @@ thread.start_new_thread(lambda: None, ())
 
 def factory(sampling_rate):
 	return CoreAudioBeeper(sampling_rate)
-
-# FIXME protect callback() with mutex

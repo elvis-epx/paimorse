@@ -6,24 +6,24 @@
 from AppKit import NSObject, NSSound, NSData
 from PyObjCTools import AppHelper
 
-local_data = {}
-
 class MacOSXBeeper(NSObject, object):
     	def init(self):
-		local_data['queue'] = []
-		local_data['playing'] = False
+		self.queue = []
+		self.playing = False
+		self.loop = False
 		return self
 
 	def play(self, sample):
-		local_data['queue'].append(sample)
-		self.do_play()
+		self.queue.append(sample)
+		if len(self.queue) > 10:
+			self.do_play()
 
 	def do_play(self):
-		if local_data['playing'] or not local_data['queue']:
+		if self.playing or not self.queue:
 			return
-		local_data['playing'] = True
-		sample = local_data['queue'][0]
-		del local_data['queue'][0]
+		self.playing = True
+		sample = self.queue[0]
+		del self.queue[0]
 		self.impl = NSSound.alloc()
 		data = NSData.alloc().initWithBytes_length_(sample, len(sample))
 		self.impl.initWithData_(data)
@@ -31,15 +31,19 @@ class MacOSXBeeper(NSObject, object):
 		self.impl.play()
 
 	def sound_didFinishPlaying_(self, s, p):
-		local_data['playing'] = False
-		if local_data['queue']:
+		self.playing = False
+		if self.queue:
 			self.do_play()
-		else:
+		elif self.loop:
 			AppHelper.stopEventLoop()
 
 	def eol_flush(self):
-		if local_data['playing']:
+		if self.queue:
+			self.do_play()
+		if self.playing:
+			self.loop = True
 			AppHelper.runConsoleEventLoop()
+			self.loop = False
 
 	def final_flush(self):
 		self.eol_flush()
@@ -47,5 +51,3 @@ class MacOSXBeeper(NSObject, object):
 
 def factory(sampling_rate):
 	return MacOSXBeeper.new()
-
-# FIXME no queueing, depends on fast play() right after eol_flush()
