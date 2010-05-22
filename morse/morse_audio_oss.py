@@ -12,6 +12,7 @@ class OSSBeeper(Beeper):
 		self.impl = ossaudiodev.open("/dev/dsp", "w")
 		self.impl.setparameters(ossaudiodev.AFMT_S16_LE, 1, self.sampling_rate)
 		self.impl.nonblock()
+		self.playing = False
 
 	def close_audio(self):
 		if self.impl:
@@ -31,11 +32,16 @@ class OSSBeeper(Beeper):
 
 		self.buf += sample
 
-		if len(self.buf) > self.watermark:
-			# Let's begin to play something
+		if len(self.buf) > self.watermark or self.playing:
+			# We begin to play something once we have
+			# enough data or we had already begun
 			if self.impl.obuffree() > 0:
+				self.playing = True
 				written = self.impl.write(self.buf)
 				self.buf = self.buf[written:]
+				if not self.buf:
+					# underflow, stop for refill
+					self.playing = False
 
 		if len(self.buf) > 10 * self.watermark:
 			# Does not let buffer grow too long
@@ -50,13 +56,10 @@ class OSSBeeper(Beeper):
 			data = self.buf
 			self.buf = ""
 			self.impl.writeall(data)
+			self.playing = False
 
 	def final_flush(self):
 		self.eol_flush()
 
 def factory(sampling_rate):
 	return OSSBeeper(sampling_rate)
-
-# FIXME after begins to play, should not stop until buffer is empty
-# FIXME put in its own thread
-# FIXME implement eol_flush

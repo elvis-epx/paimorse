@@ -37,10 +37,15 @@ class MacOSXBeeper(NSObject, object):
 		else:
 			AppHelper.stopEventLoop()
 
-	def flush(self):
-		AppHelper.runConsoleEventLoop()
-		pass
+	def eol_flush(self):
+		if local_data['playing']:
+			AppHelper.runConsoleEventLoop()
+
+	def final_flush(self):
+		self.eol_flush()
 
 
 def factory(sampling_rate):
 	return MacOSXBeeper.new()
+
+# FIXME no queueing, depends on fast play() right after eol_flush()
