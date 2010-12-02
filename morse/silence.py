@@ -1,32 +1,28 @@
 #!/usr/bin/env python
 
 import thread
-import coreaudio
+import coreaudio # http://wiki.python.org/moin/MacPython/CoreAudio
 import time
 
 class Ctrl(object):
 	def callback(self):
-		# Called in another thread's context
+		# called in another thread context!
 		return self.silence
 
-	def close(self):
-		coreaudio.stopAudio(self)
-
 	def __init__(self):
-		self.buf = []
-		self.audio_id, self.sampling_rate, self.chunksize = coreaudio.initAudio()
-		self.silence = [0.0 for i in range(0, self.chunksize)]
+		audio_id, sampling_rate, chunksize = coreaudio.initAudio()
+		self.silence = [0.0 for i in range(0, chunksize)]
+		coreaudio.installAudioCallback(audio_id, self)
 
-	def open(self):
-		coreaudio.installAudioCallback(self.audio_id, self)
+	def stop(self):
+		coreaudio.stopAudio(self)
 
 # Have to initialize the threading mechanisms in order for PyGIL_Ensure to work
 thread.start_new_thread(lambda: None, ())
 
 try:
 	ctrl = Ctrl()
-	time.sleep(1)
-	ctrl.open()
 	time.sleep(999999)
 except KeyboardInterrupt:
-	ctrl.close()
+	ctrl.stop()
+	time.sleep(0.1)
