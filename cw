@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2010 Elvis Pfutzenreuter <epx@epx.com.br>
+# Copyright (C) 2010 Elvis Pfutzenreuter <epxx@epxx.co>
 
 from morse import *
 import sys

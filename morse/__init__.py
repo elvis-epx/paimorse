@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2010 Elvis Pfutzenreuter <epx@epx.com.br>
+# Copyright (C) 2010 Elvis Pfutzenreuter <epxx@epxx.co>
 
 import wave, struct, StringIO, math, time, sys
 from . import audio
