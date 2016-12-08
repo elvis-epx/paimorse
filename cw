@@ -7,6 +7,7 @@ from morse import *
 import sys
 from StringIO import StringIO
 import getopt
+quiet = False
 
 def usage(err=""):
 	if err:
@@ -16,7 +17,7 @@ def usage(err=""):
 		sys.exit(1)
 	print "Usage: %s [ -f freq (Hz) ] [ -v volume (0.0-1.0) ] " \
 		"[ -w speed (in wpm) ] [ -d dash_length (in dots) ] " \
-		"[ -b interbit_spacing (in dots) ] " \
+		"[ -b interbit_spacing (in dots) ] [ -q | --quiet ] " \
 		"[ -s interletter_spacing (in dots) ] word1 word2 ..." % sys.argv[0]
 	print
 	print "Examples: "
@@ -39,6 +40,7 @@ def usage(err=""):
 	sys.exit(1)
 
 def interpret_args(args):
+	global quiet
 	freq = 0
 	volume = 0
 	wpm = 0
@@ -47,20 +49,26 @@ def interpret_args(args):
 	intersymbol = 0
 	try:
 		opts, args = getopt.gnu_getopt(sys.argv[1:],
-						"f:v:w:d:b:s:h",
-						["help"])
+						"f:v:w:d:b:s:hq",
+						["help", "quiet"])
 	except getopt.GetoptError:
 		usage("Invalid or unexpected parameter")
 
 	for option, value in opts:
 		if option == "-h" or option == "--help":
 			usage("")
+			continue
+		if option == "-q" or option == "--quiet":
+			quiet = True
+			continue
+
 		try:
 			value = float(value)
 		except ValueError:
 			usage("%s needs a numeric argument (can be decimal)" % option)
 		if value <= 0:
 			usage("%s argument must be greater than zero" % option)
+
 		if option == "-f":
 			if value > 11000:
 				usage("Frequency must be smaller than 11000")
@@ -91,8 +99,10 @@ def interpret_args(args):
 
 	return opts, args
 
+args = []
 if len(sys.argv) > 1:
 	opts, args = interpret_args(sys.argv[1])
+if args:
 	fd = StringIO(" ".join(args))
 else:
 	fd = sys.stdin
@@ -106,8 +116,9 @@ while True:
 	except (ValueError, UnicodeError):
 		print "Invalid UTF-8 string:", text
 	fixed_text, bits = encode_morse(text)
-	print fixed_text
-	print bits
+	if not quiet:
+		print fixed_text
+		print bits
 	play_morse_bits(bits)
 
 final_flush()
