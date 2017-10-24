@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 
 # Based on https://github.com/bear/python-twitter/blob/master/examples/tweet.py
 
-import ConfigParser
+import configparser
 import getopt
 import os
 import sys
@@ -12,7 +12,7 @@ import twitter
 import re
 
 def PrintUsageAndExit():
-  print USAGE
+  print(USAGE)
   sys.exit(2)
 
 def GetConsumerKeyEnv():
@@ -51,7 +51,7 @@ class TweetRc(object):
 
   def _GetConfig(self):
     if not self._config:
-      self._config = ConfigParser.ConfigParser()
+      self._config = configparser.ConfigParser()
       self._config.read(os.path.expanduser('~/.tweetrc'))
     return self._config
 
@@ -92,9 +92,17 @@ def main():
                     access_token_key=access_key, access_token_secret=access_secret,
                     input_encoding=encoding)
   status = api.GetHomeTimeline()[0]
+  try:
+     last_id = open("last_id.txt", "r").read()
+  except IOError:
+     last_id = "abracadabrao"
+  if last_id == status.id_str:
+     sys.exit(0)
+  print('id="%s", last="%s"' % (status.id_str, last_id), file=sys.stderr)
+  open("last_id.txt", "w").write(status.id_str)
   text = status.retweeted_status and ("RT " + status.retweeted_status.text) or status.text
   text = re.sub("http[^ ]+", "url", text)
-  print text.encode('utf-8')
+  print(text)
 
 if __name__ == "__main__":
   main()

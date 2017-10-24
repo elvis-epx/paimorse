@@ -1,3 +1,7 @@
 #!/bin/bash
 
-./twitter_status.py | ./cw -f 800 -v 0.25 -w 20 -s 6
+while true; do
+	./twitter_status.py | ./cw -f 800 -v 0.25 -w 15 -s 8
+	date
+	sleep 600
+done
