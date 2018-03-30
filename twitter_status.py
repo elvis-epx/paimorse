@@ -91,17 +91,21 @@ def main():
   api = twitter.Api(consumer_key=consumer_key, consumer_secret=consumer_secret,
                     access_token_key=access_key, access_token_secret=access_secret,
                     input_encoding=encoding)
-  status = api.GetHomeTimeline()[0]
+  ep = {}
   try:
      last_id = open("last_id.txt", "r").read()
+     ep["since_id"] = last_id
   except IOError:
-     last_id = "abracadabrao"
-  if last_id == status.id_str:
+     last_id = "<none>"
+  status = api.GetHomeTimeline(count=1, exclude_replies=True, **ep)
+  if not status:
      sys.exit(0)
+  status = status[0]
   print('id="%s", last="%s"' % (status.id_str, last_id), file=sys.stderr)
   open("last_id.txt", "w").write(status.id_str)
+  print(status, file=sys.stderr)
   text = status.retweeted_status and ("RT " + status.retweeted_status.text) or status.text
-  text = re.sub("http[^ ]+", "url", text)
+  text = re.sub("http[^ ]+", "", text)
   print(text)
 
 if __name__ == "__main__":
